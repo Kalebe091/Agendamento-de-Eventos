@@ -624,6 +624,75 @@ window.filtrarEventos = function () {
     renderizarDashboard();
 }
 
+// --- 9. EXPORTAÇÃO PARA EXCEL ---
+window.exportarExcel = function() {
+    const eventos = lerEventos();
+    
+    if (eventos.length === 0) {
+        Swal.fire({
+            icon: 'info',
+            title: 'Lista Vazia',
+            text: 'Não há eventos cadastrados para exportar.'
+        });
+        return;
+    }
+
+    // Prepara os dados formatados
+    const dadosExcel = eventos.map(evento => ({
+        "ID": evento.id,
+        "Título": evento.titulo,
+        "Data": formatarData(evento.data),
+        "Início": evento.inicio,
+        "Fim": evento.fim,
+        "Local": traduzirLocal(evento.local),
+        "Solicitante": evento.solicitante,
+        "E-mail de Contato": evento.emailContato,
+        "Status": evento.status.toUpperCase(),
+        "Observações": evento.observacoes || "Nenhuma"
+    }));
+
+    // Cria a planilha a partir dos dados
+    const worksheet = XLSX.utils.json_to_sheet(dadosExcel);
+
+    // Configura a largura das colunas
+    const colWidths = [
+        { wch: 15 }, // ID
+        { wch: 30 }, // Título
+        { wch: 12 }, // Data
+        { wch: 10 }, // Início
+        { wch: 10 }, // Fim
+        { wch: 35 }, // Local
+        { wch: 25 }, // Solicitante
+        { wch: 30 }, // E-mail
+        { wch: 15 }, // Status
+        { wch: 40 }  // Observações
+    ];
+    worksheet['!cols'] = colWidths;
+
+    // Cria o arquivo Excel
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Eventos");
+
+    // Formata a data atual para o nome do arquivo
+    const hoje = new Date().toLocaleDateString('pt-BR').replace(/\//g, '-');
+    const nomeArquivo = `Relatorio_Eventos_${hoje}.xlsx`;
+
+    // Dispara o download
+    XLSX.writeFile(workbook, nomeArquivo);
+    
+    // Feedback opcional
+    const Toast = Swal.mixin({
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 3000
+    });
+    Toast.fire({
+        icon: 'success',
+        title: 'Planilha exportada com sucesso!'
+    });
+};
+
 // Inicialização automática ao carregar a página
 document.addEventListener('DOMContentLoaded', () => {
     // Como o dashboard é a tela inicial ativa no HTML,
