@@ -1,0 +1,30 @@
+/* --- ESTILOS COMPLEMENTARES AO BOOTSTRAP --- */
+body {
+    background-color: #f8fafc !important; /* Fundo mais suave que o bg-light padrão */
+    font-family: 'Segoe UI', system-ui, sans-serif;
+}
+
+/* Animações de Transição de Telas (Dashboard, Solicitação, etc) */
+.tela {
+    display: none;
+    animation: slideUp 0.4s ease-out;
+}
+
+.tela.ativa {
+    display: block;
+}
+
+@keyframes slideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Efeito Hover nos Cards do Dashboard e Admin */
+.card {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1) !important;
+}
