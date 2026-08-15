@@ -283,7 +283,10 @@ function renderizarAdmin() {
                     <i class="bi bi-x-lg me-1"></i>Rejeitar
                 </button>
             `;
+        } else if (evento.status === 'aprovado') {
+            botoesAcao += `<button class="btn btn-primary btn-sm fw-semibold" onclick="abrirModalAdmin(${evento.id})" data-bs-toggle="modal" data-bs-target="#modalAdmin" title="Editar"><i class="bi bi-pencil me-1"></i>Editar</button>`;
         }
+        
         // Botão de excluir sempre aparece
         botoesAcao += `<button class="btn btn-danger btn-sm fw-semibold" onclick="excluirEvento(${evento.id})" title="Excluir Definitivamente"><i class="bi bi-trash3 me-1"></i>Deletar</button>`;
 
@@ -428,7 +431,7 @@ window.excluirEvento = function (id) {
             eventos = eventos.filter(e => e.id !== id);
             salvarNoBanco(eventos);
             renderizarAdmin();
-
+            
             Swal.fire(
                 'Excluído!',
                 'O evento foi removido permanentemente.',
@@ -437,6 +440,107 @@ window.excluirEvento = function (id) {
         }
     });
 };
+
+// --- FUNÇÕES DO MODAL ADMIN (Adicionar / Editar) ---
+
+window.abrirModalAdmin = function(id = null) {
+    try {
+        const form = document.getElementById('form-admin-evento');
+        if (form) form.reset();
+        
+        const idField = document.getElementById('admin-id');
+        if (idField) idField.value = '';
+        
+        // Em navegadores antigos ou cliques estranhos, 'id' pode vir como Event
+        if (id && typeof id === 'object') {
+            id = null;
+        }
+        
+        if (id) {
+            document.getElementById('modalAdminTitle').innerText = 'Editar Evento';
+            const eventos = lerEventos();
+            const evento = eventos.find(e => String(e.id) === String(id));
+            
+            if (evento) {
+                document.getElementById('admin-id').value = evento.id;
+                document.getElementById('admin-titulo').value = evento.titulo || '';
+                document.getElementById('admin-data').value = evento.data || '';
+                document.getElementById('admin-horaInicio').value = evento.inicio || '';
+                document.getElementById('admin-horaFim').value = evento.fim || '';
+                document.getElementById('admin-local').value = evento.local || '';
+                document.getElementById('admin-solicitante').value = evento.solicitante || '';
+                document.getElementById('admin-emailContato').value = evento.emailContato || '';
+                document.getElementById('admin-observacoes').value = evento.observacoes || '';
+            }
+        } else {
+            document.getElementById('modalAdminTitle').innerText = 'Adicionar Novo Evento';
+        }
+        // Deixa a exibição real do modal para o data-bs-toggle do HTML!
+    } catch (erro) {
+        alert("Ops, ocorreu um erro ao abrir: " + erro.message);
+        console.error("Erro abrirModalAdmin:", erro);
+    }
+};
+
+document.getElementById('form-admin-evento').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const idField = document.getElementById('admin-id').value;
+    const isEdicao = idField !== '';
+    
+    const eventoSubmit = {
+        id: isEdicao ? parseInt(idField) : Date.now(),
+        titulo: document.getElementById('admin-titulo').value,
+        data: document.getElementById('admin-data').value,
+        inicio: document.getElementById('admin-horaInicio').value,
+        fim: document.getElementById('admin-horaFim').value,
+        local: document.getElementById('admin-local').value,
+        solicitante: document.getElementById('admin-solicitante').value,
+        emailContato: document.getElementById('admin-emailContato').value,
+        observacoes: document.getElementById('admin-observacoes').value,
+        status: 'aprovado' // Admin cria/edita sempre aprovado
+    };
+
+    if (eventoSubmit.inicio >= eventoSubmit.fim) {
+        Swal.fire('Horário Inválido', 'O horário de fim deve ser posterior ao horário de início.', 'error');
+        return;
+    }
+
+    let eventos = lerEventos();
+    
+    // Verifica conflito excluindo o próprio evento se for edição
+    const outrosEventos = isEdicao ? eventos.filter(e => e.id !== eventoSubmit.id) : eventos;
+    
+    if (verificarConflito(eventoSubmit, outrosEventos)) {
+        Swal.fire('Conflito', 'Já existe um evento aprovado para este local e horário!', 'warning');
+        return;
+    }
+
+    if (isEdicao) {
+        const index = eventos.findIndex(e => e.id === eventoSubmit.id);
+        if(index !== -1) {
+            // Preserva o status original caso tenha sido modificado no futuro (embora a regra atual force aprovado)
+            eventoSubmit.status = eventos[index].status; 
+            eventos[index] = eventoSubmit;
+        }
+    } else {
+        eventos.push(eventoSubmit);
+    }
+
+    salvarNoBanco(eventos);
+    renderizarAdmin();
+    
+    const modalEl = document.getElementById('modalAdmin');
+    const modalInstance = bootstrap.Modal.getOrCreateInstance(modalEl);
+    modalInstance.hide();
+    
+    Swal.fire({
+        icon: 'success',
+        title: isEdicao ? 'Evento Atualizado!' : 'Evento Criado!',
+        showConfirmButton: false,
+        timer: 1500
+    });
+});
 
 // --- 8. VISUALIZAÇÃO PÚBLICA (Dashboard) ---
 
@@ -507,9 +611,10 @@ function renderizarDashboard() {
 // Helper para mostrar nome bonito do local
 function traduzirLocal(codigo) {
     const locais = {
-        'auditorio': 'Auditório Principal',
-        'sala1': 'Laboratório de Informática',
-        'sala2': 'Sala de Reuniões'
+        'auditorio': 'Auditório',
+        'lab_avancado': 'Laboratório de Informática Avançado',
+        'lab_basico': 'Laboratório de Informática Básico',
+        'sala_aula': 'Sala de Aula'
     };
     return locais[codigo] || codigo;
 }
