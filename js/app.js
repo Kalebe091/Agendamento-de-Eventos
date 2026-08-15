@@ -240,7 +240,7 @@ function formatarData(dataISO) {
 
 function renderizarAdmin() {
     const container = document.getElementById('lista-eventos-admin');
-    const eventos = lerEventos();
+    let eventos = lerEventos();
 
     container.innerHTML = ''; // Limpa a lista antes de recriar
 
@@ -249,30 +249,44 @@ function renderizarAdmin() {
         return;
     }
 
-    // Ordena: Pendentes primeiro, depois por data
-    eventos.sort((a, b) => {
-        if (a.status !== b.status) return a.status === 'pendente' ? -1 : 1;
-        return new Date(a.data + 'T' + a.inicio) - new Date(b.data + 'T' + b.inicio);
+    const ativos = [];
+    const encerrados = [];
+    
+    eventos.forEach(e => {
+        const dataFim = new Date(`${e.data}T${e.fim}`);
+        if (dataFim < new Date()) {
+            encerrados.push(e);
+        } else {
+            ativos.push(e);
+        }
     });
 
-    eventos.forEach(evento => {
-        // Define classe visual para o status
+    // Ordenar ativos: Pendentes primeiro, depois por data mais proxima (crescente)
+    ativos.sort((a, b) => {
+        if (a.status !== b.status) {
+            if (a.status === 'pendente') return -1;
+            if (b.status === 'pendente') return 1;
+        }
+        return new Date(`${a.data}T${a.inicio}`) - new Date(`${b.data}T${b.inicio}`);
+    });
+
+    // Ordenar encerrados: mais recentes primeiro (decrescente)
+    encerrados.sort((a, b) => new Date(`${b.data}T${b.inicio}`) - new Date(`${a.data}T${a.inicio}`));
+
+    const criarCard = (evento, isEncerrado) => {
         let classeStatus = '';
         let iconeStatus = '';
         if (evento.status === 'pendente') {
             classeStatus = 'text-bg-warning';
             iconeStatus = '<i class="bi bi-hourglass-split"></i>';
-        }
-        else if (evento.status === 'aprovado') {
+        } else if (evento.status === 'aprovado') {
             classeStatus = 'text-bg-success';
             iconeStatus = '<i class="bi bi-check-circle"></i>';
-        }
-        else {
+        } else {
             classeStatus = 'text-bg-danger';
             iconeStatus = '<i class="bi bi-x-circle"></i>';
         }
 
-        // Botões de ação dependem do status
         let botoesAcao = '';
         if (evento.status === 'pendente') {
             botoesAcao = `
@@ -287,18 +301,18 @@ function renderizarAdmin() {
             botoesAcao += `<button class="btn btn-primary btn-sm fw-semibold" onclick="abrirModalAdmin(${evento.id})" data-bs-toggle="modal" data-bs-target="#modalAdmin" title="Editar"><i class="bi bi-pencil me-1"></i>Editar</button>`;
         }
         
-        // Botão de excluir sempre aparece
         botoesAcao += `<button class="btn btn-danger btn-sm fw-semibold" onclick="excluirEvento(${evento.id})" title="Excluir Definitivamente"><i class="bi bi-trash3 me-1"></i>Deletar</button>`;
 
         const card = document.createElement('div');
         card.className = 'col-md-6 col-lg-4';
+        if (isEncerrado) card.style.opacity = '0.7';
+
         card.innerHTML = `
             <div class="card h-100 shadow-sm border-0">
                 <div class="card-header bg-white border-bottom-0 pt-3 pb-0 d-flex justify-content-between align-items-start">
                     <h5 class="card-title mb-0 text-truncate pe-2" title="${evento.titulo}">${evento.titulo}</h5>
                     <span class="badge rounded-pill ${classeStatus}">${iconeStatus} ${evento.status.toUpperCase()}</span>
                 </div>
-
                 <div class="card-body pb-0">
                     <ul class="list-group list-group-flush mb-3">
                         <li class="list-group-item px-0 border-0 pb-1 pt-2">
@@ -319,21 +333,35 @@ function renderizarAdmin() {
                             <small class="text-muted">${evento.emailContato}</small>
                         </li>
                     </ul>
-                    
                     ${evento.observacoes ? `
                     <div class="alert alert-light border mt-2 py-2 px-3">
                         <small class="fw-bold d-block text-muted mb-1"><i class="bi bi-journal-text me-1"></i>Observações</small>
                         <p class="mb-0 small text-break">${evento.observacoes}</p>
                     </div>` : ''}
                 </div>
-
                 <div class="card-footer bg-white border-top-0 d-flex gap-2 justify-content-end pb-3">
                     ${botoesAcao}
                 </div>
             </div>
         `;
-        container.appendChild(card);
-    });
+        return card;
+    };
+
+    if (ativos.length > 0) {
+        const header = document.createElement('div');
+        header.className = 'col-12 mb-2 mt-2';
+        header.innerHTML = `<h5 class="fw-bold text-primary border-bottom border-2 border-primary pb-2"><i class="bi bi-clock-history me-2"></i>Eventos Ativos / Pendentes</h5>`;
+        container.appendChild(header);
+        ativos.forEach(evento => container.appendChild(criarCard(evento, false)));
+    }
+
+    if (encerrados.length > 0) {
+        const header = document.createElement('div');
+        header.className = 'col-12 mb-2 mt-4';
+        header.innerHTML = `<h5 class="fw-bold text-secondary border-bottom border-2 border-secondary pb-2"><i class="bi bi-calendar-check me-2"></i>Eventos Encerrados</h5>`;
+        container.appendChild(header);
+        encerrados.forEach(evento => container.appendChild(criarCard(evento, true)));
+    }
 }
 
 // --- 7. AÇÕES DO ADMINISTRADOR (Aprovar/Excluir) ---
@@ -557,29 +585,40 @@ function renderizarDashboard() {
         eventos = eventos.filter(e => e.data === filtroData);
     }
 
-    // Ordenar por data e hora
-    eventos.sort((a, b) => {
-        if (a.data !== b.data) return a.data.localeCompare(b.data);
-        return a.inicio.localeCompare(b.inicio);
+    const ativos = [];
+    const encerrados = [];
+    
+    eventos.forEach(e => {
+        const dataFim = new Date(`${e.data}T${e.fim}`);
+        if (dataFim < new Date()) {
+            encerrados.push(e);
+        } else {
+            ativos.push(e);
+        }
     });
+
+    // Ordenar ativos: mais próximos primeiro (crescente)
+    ativos.sort((a, b) => new Date(`${a.data}T${a.inicio}`) - new Date(`${b.data}T${b.inicio}`));
+    
+    // Ordenar encerrados: mais recentes primeiro (decrescente)
+    encerrados.sort((a, b) => new Date(`${b.data}T${b.inicio}`) - new Date(`${a.data}T${a.inicio}`));
 
     container.innerHTML = ''; // Limpa a tela
 
-    if (eventos.length === 0) {
+    if (ativos.length === 0 && encerrados.length === 0) {
         container.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: gray;">Nenhum evento confirmado para este período.</p>';
         return;
     }
 
-    // Gera os Cards
-    eventos.forEach(evento => {
+    const criarCard = (evento, isEncerrado) => {
         const card = document.createElement('div');
         card.className = 'col-md-6 col-lg-4';
+        if (isEncerrado) card.style.opacity = '0.7';
 
         card.innerHTML = `
-            <div class="card h-100 shadow-sm border-0 border-start border-primary border-4">
+            <div class="card h-100 shadow-sm border-0 border-start ${isEncerrado ? 'border-secondary' : 'border-primary'} border-4">
                 <div class="card-body">
-                    <h5 class="card-title fw-bold mb-3">${evento.titulo}</h5>
-                    
+                    <h5 class="card-title fw-bold mb-3 ${isEncerrado ? 'text-muted' : ''}">${evento.titulo}</h5>
                     <div class="d-flex align-items-center text-muted small mb-2">
                         <i class="bi bi-calendar3 me-2 fs-6"></i>
                         <span>${formatarData(evento.data)}</span>
@@ -588,14 +627,11 @@ function renderizarDashboard() {
                         <i class="bi bi-clock me-2 fs-6"></i>
                         <span>${evento.inicio} às ${evento.fim}</span>
                     </div>
-                    
                     <div class="bg-light p-2 rounded-2 small fw-medium mb-3 d-flex align-items-center">
-                        <i class="bi bi-geo-alt-fill text-primary me-2"></i>
+                        <i class="bi bi-geo-alt-fill ${isEncerrado ? 'text-secondary' : 'text-primary'} me-2"></i>
                         ${traduzirLocal(evento.local)}
                     </div>
-                    
                     <hr class="text-secondary opacity-25">
-                    
                     <div class="d-flex align-items-center small text-muted">
                         <i class="bi bi-person-circle me-2 fs-5"></i>
                         <span>Solicitado por: <strong class="text-dark">${evento.solicitante}</strong></span>
@@ -603,9 +639,24 @@ function renderizarDashboard() {
                 </div>
             </div>
         `;
+        return card;
+    };
 
-        container.appendChild(card);
-    });
+    if (ativos.length > 0) {
+        const header = document.createElement('div');
+        header.className = 'col-12 mb-2 mt-2';
+        header.innerHTML = `<h5 class="fw-bold text-primary border-bottom border-2 border-primary pb-2"><i class="bi bi-calendar-event me-2"></i>Próximos Eventos</h5>`;
+        container.appendChild(header);
+        ativos.forEach(evento => container.appendChild(criarCard(evento, false)));
+    }
+
+    if (encerrados.length > 0) {
+        const header = document.createElement('div');
+        header.className = 'col-12 mb-2 mt-4';
+        header.innerHTML = `<h5 class="fw-bold text-secondary border-bottom border-2 border-secondary pb-2"><i class="bi bi-calendar-check me-2"></i>Eventos Encerrados</h5>`;
+        container.appendChild(header);
+        encerrados.forEach(evento => container.appendChild(criarCard(evento, true)));
+    }
 }
 
 // Helper para mostrar nome bonito do local
