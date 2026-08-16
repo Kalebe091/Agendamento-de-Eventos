@@ -420,7 +420,7 @@ function enviarEmailNotificacao(evento) {
     };
 
     // Parâmetros: 'SERVICE_ID', 'TEMPLATE_ID', templateParams
-    emailjs.send('service_ymdjb7o', 'template_9yc542x', templateParams)
+    emailjs.send('seuiddesservico', 'seutemplate', templateParams)
         .then((response) => {
             console.log('E-mail enviado com sucesso!', response.status, response.text);
 
