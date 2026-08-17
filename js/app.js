@@ -1,5 +1,5 @@
 // --- CONFIGURAÇÃO DE SEGURANÇA ---
-const ADMIN_USER = "admin@anhanguera.com";
+const ADMIN_USER = "admin@email.com";
 const ADMIN_PASS = "teste@2026"; // Em produção, isso viria do backend criptografado!
 
 // --- 1. GERENCIAMENTO DE DADOS (Simulando Banco de Dados) ---
